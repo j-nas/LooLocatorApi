@@ -8,27 +8,92 @@ namespace LooLocatorApi.Services;
 internal class BathroomService : IBathroomService
 {
     private readonly DataContext _dataContext;
+    private readonly GeometryFactory _geometryFactory;
 
-    public BathroomService(DataContext dataContext)
+    public BathroomService(DataContext dataContext,
+        GeometryFactory geometryFactory)
     {
+        _geometryFactory = geometryFactory.WithSRID(4362);
         _dataContext = dataContext;
     }
 
-    public async Task<Bathroom> GetBathroomByIdAsync(Guid id)
+    public async Task<BathroomDto> GetBathroomByIdAsync(Guid id)
     {
-        return await _dataContext
-                   .Set<Bathroom>()
-                   .Include(b => b.CleanlinessRatings)
-                   .FirstOrDefaultAsync(b => b.Id == id) ??
-               throw new KeyNotFoundException();
+        var bathroom =
+            await _dataContext
+                .Set<Bathroom>()
+                .Include(b => b.CleanlinessRatings)
+                .FirstOrDefaultAsync(b => b.Id == id) ??
+            throw new KeyNotFoundException();
+
+        return MapBathroomToDto(bathroom);
     }
 
-    public async Task<IEnumerable<Bathroom>> GetBathroomsAsync()
+    public async Task<IEnumerable<BathroomDto>> GetBathroomsAsync()
     {
-        var bathrooms = _dataContext.Bathrooms.ToListAsync();
-        return await bathrooms;
-        // return await _dataContext.Set<Bathroom>()
-        // .Include(b => b.CleanlinessRatings).ToListAsync();
+        var bathrooms = await _dataContext.Bathrooms
+            .Include(b => b.CleanlinessRatings)
+            .ToListAsync();
+        return bathrooms.Select(MapBathroomToDto);
+    }
+
+    public Task CreateBathroomAsync(BathroomDto bathroom)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task UpdateBathroomAsync(BathroomDto bathroom)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task DeleteBathroomAsync(Guid id)
+    {
+        var bathroom = await _dataContext.Set<Bathroom>().FindAsync(id) ??
+                       throw new KeyNotFoundException();
+        _dataContext.Set<Bathroom>().Remove(bathroom);
+        await _dataContext.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<BathroomDto>> GetBathroomsWithinRadiusAsync(
+        Point coordinates,
+        double radiusInMeters
+    )
+    {
+        // get bathrooms within radius, and return list of bathroom dtos
+        var bathrooms = await _dataContext
+            .Set<Bathroom>()
+            .Include(b => b.CleanlinessRatings)
+            .Where(b =>
+                b.Coordinates.IsWithinDistance(coordinates, radiusInMeters))
+            .ToListAsync();
+
+        return bathrooms.Select(MapBathroomToDto);
+    }
+
+    public async Task<IEnumerable<BathroomDto>>
+        GetBathroomsWithinBoundingBoxAsync(
+            Point bottomLeft,
+            Point topRight
+        )
+    {
+        var boundingBox = new GeometryFactory().CreatePolygon(
+            new[]
+            {
+                new Coordinate(bottomLeft.X, bottomLeft.Y),
+                new Coordinate(bottomLeft.X, topRight.Y),
+                new Coordinate(topRight.X, topRight.Y),
+                new Coordinate(topRight.X, bottomLeft.Y)
+            }
+        );
+
+        var bathrooms = await _dataContext
+            .Set<Bathroom>()
+            .Include(b => b.CleanlinessRatings)
+            .Where(b => b.Coordinates.Within(boundingBox))
+            .ToListAsync();
+
+        return bathrooms.Select(MapBathroomToDto);
     }
 
     public async Task CreateBathroomAsync(Bathroom bathroom)
@@ -43,44 +108,45 @@ internal class BathroomService : IBathroomService
         await _dataContext.SaveChangesAsync();
     }
 
-    public async Task DeleteBathroomAsync(Guid id)
+    private static BathroomDto MapBathroomToDto(Bathroom bathroom)
     {
-        var bathroom = await GetBathroomByIdAsync(id);
-        _dataContext.Set<Bathroom>().Remove(bathroom);
-        await _dataContext.SaveChangesAsync();
+        return new BathroomDto
+        {
+            Id = bathroom.Id,
+            LocationName = bathroom.LocationName,
+            LocationType = bathroom.LocationType,
+            AdditionalInfo = bathroom.AdditionalInfo,
+            Longitude = bathroom.Coordinates.X,
+            Latitude = bathroom.Coordinates.Y,
+            IsAccessible = bathroom.IsAccessible,
+            IsUnisex = bathroom.IsUnisex,
+            IsChangingTable = bathroom.IsChangingTable,
+            IsFamilyFriendly = bathroom.IsFamilyFriendly,
+            IsPurchaseRequired = bathroom.IsPurchaseRequired,
+            IsKeyRequired = bathroom.IsKeyRequired
+        };
     }
 
-    public async Task<IEnumerable<Bathroom>> GetBathroomsWithinRadiusAsync(
-        Point coordinates,
-        double radiusInMeters
-    )
+    private Bathroom MapDtoToBathroom(BathroomDto bathroomDto)
     {
-        return await _dataContext
-            .Set<Bathroom>()
-            .Include(b => b.CleanlinessRatings)
-            .Where(b => b.Coordinates.Distance(coordinates) <= radiusInMeters)
-            .ToListAsync();
-    }
-
-    public async Task<IEnumerable<Bathroom>> GetBathroomsWithinBoundingBoxAsync(
-        Point bottomLeft,
-        Point topRight
-    )
-    {
-        var boundingBox = new GeometryFactory().CreatePolygon(
-            new[]
-            {
-                new Coordinate(bottomLeft.X, bottomLeft.Y),
-                new Coordinate(bottomLeft.X, topRight.Y),
-                new Coordinate(topRight.X, topRight.Y),
-                new Coordinate(topRight.X, bottomLeft.Y)
-            }
+        var coordinates = _geometryFactory.CreatePoint(
+            new Coordinate(bathroomDto.Longitude ?? 0,
+                bathroomDto.Latitude ?? 0)
         );
 
-        return await _dataContext
-            .Set<Bathroom>()
-            .Include(b => b.CleanlinessRatings)
-            .Where(b => b.Coordinates.Within(boundingBox))
-            .ToListAsync();
+        return new Bathroom
+        {
+            Id = bathroomDto.Id,
+            LocationName = bathroomDto.LocationName,
+            Coordinates = coordinates,
+            LocationType = bathroomDto.LocationType,
+            AdditionalInfo = bathroomDto.AdditionalInfo,
+            IsAccessible = bathroomDto.IsAccessible,
+            IsUnisex = bathroomDto.IsUnisex,
+            IsChangingTable = bathroomDto.IsChangingTable,
+            IsFamilyFriendly = bathroomDto.IsFamilyFriendly,
+            IsPurchaseRequired = bathroomDto.IsPurchaseRequired,
+            IsKeyRequired = bathroomDto.IsKeyRequired
+        };
     }
 }

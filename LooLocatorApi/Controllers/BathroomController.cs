@@ -19,13 +19,14 @@ public class BathroomController : ControllerBase
 
     // GET: api/Bathroom
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Bathroom>>> GetBathrooms()
+    public async Task<ActionResult<IEnumerable<BathroomDto>>> GetBathrooms()
     {
         var bathrooms = await _service.GetBathroomsAsync();
         if (!bathrooms.Any())
             return Ok();
         return Ok(bathrooms);
     }
+
     //
     // // GET: api/Bathroom/withinRadius?coordinates=POINT(-122.335167 47.608013)&radiusInMeters=1000
     // [HttpGet("withinRadius")]
@@ -85,20 +86,20 @@ public class BathroomController : ControllerBase
     //     throw new NotImplementedException();
     // }
     //
-    // // POST: api/Bathroom
-    // // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-    // [HttpPost]
-    // public async Task<ActionResult<Bathroom>> PostBathroom(Bathroom bathroom)
-    // {
-    //     // if (_context.Bathrooms == null)
-    //     //     return Problem("Entity set 'DataContext.Bathrooms'  is null.");
-    //     // _context.Bathrooms.Add(bathroom);
-    //     // await _context.SaveChangesAsync();
-    //     //
-    //     // return CreatedAtAction("GetBathroom", new { id = bathroom.Id },
-    //     //     bathroom);
-    //     throw new NotImplementedException();
-    // }
+    // POST: api/Bathroom
+    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+    [HttpPost]
+    public async Task<ActionResult<Bathroom>> PostBathroom(Bathroom bathroom)
+    {
+        // if (_context.Bathrooms == null)
+        //     return Problem("Entity set 'DataContext.Bathrooms'  is null.");
+        // _context.Bathrooms.Add(bathroom);
+        // await _context.SaveChangesAsync();
+        //
+        // return CreatedAtAction("GetBathroom", new { id = bathroom.Id },
+        //     bathroom);
+        throw new NotImplementedException();
+    }
     //
     // // DELETE: api/Bathroom/5
     // [HttpDelete("{id}")]
