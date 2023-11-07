@@ -25,7 +25,7 @@ builder.Services.AddTransient<GeometryFactory, GeometryFactory>();
 builder.Services.AddTransient<IBathroomService, BathroomService>();
 
 builder.Services.AddDbContext<DataContext>(
-    options => options.UseNpgsql(dataSource, o => o.UseNetTopologySuite())
+    options => options.UseNpgsql(dataSource, o => o.UseNetTopologySuite()).UseSnakeCaseNamingConvention()
 );
 var app = builder.Build();
 
