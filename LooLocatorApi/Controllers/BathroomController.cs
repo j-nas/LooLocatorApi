@@ -1,6 +1,8 @@
+using System.Text;
 using LooLocatorApi.Models;
 using LooLocatorApi.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
 namespace LooLocatorApi.Controllers;
 
@@ -89,16 +91,14 @@ public class BathroomController : ControllerBase
     // POST: api/Bathroom
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [HttpPost]
-    public async Task<ActionResult<Bathroom>> PostBathroom(Bathroom bathroom)
+    public async Task<ActionResult<BathroomDto>> PostBathroom(
+        BathroomDto bathroomDto)
     {
-        // if (_context.Bathrooms == null)
-        //     return Problem("Entity set 'DataContext.Bathrooms'  is null.");
-        // _context.Bathrooms.Add(bathroom);
-        // await _context.SaveChangesAsync();
-        //
-        // return CreatedAtAction("GetBathroom", new { id = bathroom.Id },
-        //     bathroom);
-        throw new NotImplementedException();
+        var bathroom = await _service.CreateBathroomAsync(bathroomDto);
+        return CreatedAtAction(
+            nameof(PostBathroom),
+            new {id = bathroom.Id},
+            bathroom);
     }
     //
     // // DELETE: api/Bathroom/5

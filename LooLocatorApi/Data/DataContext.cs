@@ -12,6 +12,7 @@ public class DataContext : DbContext
 
     public DbSet<Bathroom> Bathrooms { get; init; } = null!;
     public DbSet<CleanlinessRating> CleanlinessRatings { get; init; } = null!;
+    public DbSet<Address> Addresses { get; init; } = null!;
 
     protected override void OnConfiguring(
         DbContextOptionsBuilder optionsBuilder)
@@ -26,6 +27,12 @@ public class DataContext : DbContext
             .HasMany<CleanlinessRating>(b => b.CleanlinessRatings)
             .WithOne(cr => cr.Bathroom)
             .HasForeignKey(cr => cr.BathroomId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder
+            .Entity<Bathroom>()
+            .HasOne<Address>(b => b.Address)
+            .WithOne(a => a.Bathroom)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

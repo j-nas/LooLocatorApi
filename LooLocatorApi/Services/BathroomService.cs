@@ -7,14 +7,16 @@ namespace LooLocatorApi.Services;
 
 internal class BathroomService : IBathroomService
 {
+    private readonly IAddressService _addressService;
     private readonly DataContext _dataContext;
     private readonly GeometryFactory _geometryFactory;
 
     public BathroomService(DataContext dataContext,
-        GeometryFactory geometryFactory)
+        GeometryFactory geometryFactory, IAddressService addressService)
     {
         _geometryFactory = geometryFactory.WithSRID(4362);
         _dataContext = dataContext;
+        _addressService = addressService;
     }
 
     public async Task<BathroomDto> GetBathroomByIdAsync(Guid id)
@@ -23,6 +25,7 @@ internal class BathroomService : IBathroomService
             await _dataContext
                 .Set<Bathroom>()
                 .Include(b => b.CleanlinessRatings)
+                .Include(b => b.Address)
                 .FirstOrDefaultAsync(b => b.Id == id) ??
             throw new KeyNotFoundException();
 
@@ -37,9 +40,23 @@ internal class BathroomService : IBathroomService
         return bathrooms.Select(MapBathroomToDto);
     }
 
-    public Task CreateBathroomAsync(BathroomDto bathroom)
+    public async Task<BathroomDto> CreateBathroomAsync(BathroomDto bathroomDto)
     {
-        throw new NotImplementedException();
+        var coordinates = _geometryFactory.CreatePoint(
+            new Coordinate(bathroomDto.Longitude, bathroomDto.Latitude)
+        );
+        var address = await _addressService.GetAddressFromCoordinatesAsync(
+            coordinates
+        );
+       
+        var bathroom = MapDtoToBathroom(bathroomDto);
+        bathroom.Coordinates = coordinates;
+        bathroom.Address = address;
+
+        var newBathroom = await _dataContext.Set<Bathroom>().AddAsync(bathroom);
+        await _dataContext.SaveChangesAsync();
+
+        return MapBathroomToDto(newBathroom.Entity);
     }
 
     public Task UpdateBathroomAsync(BathroomDto bathroom)
@@ -60,7 +77,6 @@ internal class BathroomService : IBathroomService
         double radiusInMeters
     )
     {
-        // get bathrooms within radius, and return list of bathroom dtos
         var bathrooms = await _dataContext
             .Set<Bathroom>()
             .Include(b => b.CleanlinessRatings)
@@ -96,12 +112,6 @@ internal class BathroomService : IBathroomService
         return bathrooms.Select(MapBathroomToDto);
     }
 
-    public async Task CreateBathroomAsync(Bathroom bathroom)
-    {
-        await _dataContext.Set<Bathroom>().AddAsync(bathroom);
-        await _dataContext.SaveChangesAsync();
-    }
-
     public async Task UpdateBathroomAsync(Bathroom bathroom)
     {
         _dataContext.Set<Bathroom>().Update(bathroom);
@@ -123,17 +133,28 @@ internal class BathroomService : IBathroomService
             IsChangingTable = bathroom.IsChangingTable,
             IsFamilyFriendly = bathroom.IsFamilyFriendly,
             IsPurchaseRequired = bathroom.IsPurchaseRequired,
-            IsKeyRequired = bathroom.IsKeyRequired
+            IsKeyRequired = bathroom.IsKeyRequired,
+            AddressLine1 = bathroom.Address?.Line1,
+            AddressLine2 = bathroom.Address?.Line2,
+            City = bathroom.Address?.City,
+            Province = bathroom.Address?.Province,
+            PostalCode = bathroom.Address?.PostalCode,
+            AverageRating = bathroom.CleanlinessRatings.Count > 0
+                ? bathroom.CleanlinessRatings
+                    .Select(r => r.Rating)
+                    .Cast<int>()
+                    .Average()
+                : null
         };
     }
 
     private Bathroom MapDtoToBathroom(BathroomDto bathroomDto)
     {
         var coordinates = _geometryFactory.CreatePoint(
-            new Coordinate(bathroomDto.Longitude ?? 0,
-                bathroomDto.Latitude ?? 0)
+            new Coordinate(bathroomDto.Longitude,
+                bathroomDto.Latitude)
         );
-
+        var address = _addressService.GetAddressFromBathroomDto(bathroomDto);
         return new Bathroom
         {
             Id = bathroomDto.Id,
@@ -146,7 +167,8 @@ internal class BathroomService : IBathroomService
             IsChangingTable = bathroomDto.IsChangingTable,
             IsFamilyFriendly = bathroomDto.IsFamilyFriendly,
             IsPurchaseRequired = bathroomDto.IsPurchaseRequired,
-            IsKeyRequired = bathroomDto.IsKeyRequired
+            IsKeyRequired = bathroomDto.IsKeyRequired,
+            Address = address
         };
     }
 }

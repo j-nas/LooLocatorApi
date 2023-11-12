@@ -23,10 +23,14 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddTransient<GeometryFactory, GeometryFactory>();
 builder.Services.AddTransient<IBathroomService, BathroomService>();
+builder.Services.AddTransient<IAddressService, AddressService>();
 
 builder.Services.AddDbContext<DataContext>(
-    options => options.UseNpgsql(dataSource, o => o.UseNetTopologySuite()).UseSnakeCaseNamingConvention()
+    options => options.UseNpgsql(dataSource, o => o.UseNetTopologySuite())
+        .UseSnakeCaseNamingConvention()
 );
+
+builder.Services.AddHttpClient();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

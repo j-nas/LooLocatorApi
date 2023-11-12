@@ -7,7 +7,7 @@ public interface IBathroomService
 {
     Task<BathroomDto> GetBathroomByIdAsync(Guid id);
     Task<IEnumerable<BathroomDto>> GetBathroomsAsync();
-    Task CreateBathroomAsync(BathroomDto bathroom);
+    Task<BathroomDto> CreateBathroomAsync(BathroomDto bathroom);
     Task UpdateBathroomAsync(BathroomDto bathroom);
     Task DeleteBathroomAsync(Guid id);
 
