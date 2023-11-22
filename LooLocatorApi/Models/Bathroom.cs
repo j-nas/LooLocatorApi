@@ -8,8 +8,10 @@ namespace LooLocatorApi.Models;
 public class Bathroom
 {
     public Guid Id { get; set; }
+
     [MaxLength(100)]
     public required string LocationName { get; set; }
+
     [MaxLength(500)]
     public string? AdditionalInfo { get; set; }
 
@@ -23,9 +25,6 @@ public class Bathroom
     public bool IsFamilyFriendly { get; set; }
     public bool IsPurchaseRequired { get; set; }
     public bool IsKeyRequired { get; set; }
-    // public DateTime CreatedAt { get; set; }
-    // public DateTime UpdatedAt { get; set; }
 
-    public ICollection<CleanlinessRating> CleanlinessRatings { get; } =
-        new List<CleanlinessRating>();
+    public List<CleanlinessRating> CleanlinessRatings { get; set; } = null!;
 }
