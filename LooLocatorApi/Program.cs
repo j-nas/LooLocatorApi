@@ -2,6 +2,7 @@ using LooLocatorApi.Data;
 using LooLocatorApi.Services;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.IO.Converters;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,20 +16,31 @@ var dataSource = dataSourceBuilder.Build();
 // builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 //     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAdB2C"));
 
-builder.Services.AddControllers();
+builder
+    .Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        var geoJsonConverterFactory = new GeoJsonConverterFactory();
+        options.JsonSerializerOptions.Converters.Add(geoJsonConverterFactory);
+    });
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddTransient<GeometryFactory, GeometryFactory>();
-builder.Services.AddTransient<IBathroomService, BathroomService>();
+builder.Services.AddScoped<IBathroomService, BathroomService>();
 builder.Services.AddTransient<IAddressService, AddressService>();
 
-builder.Services.AddDbContext<DataContext>(
-    options => options.UseNpgsql(dataSource, o => o.UseNetTopologySuite())
-        .UseSnakeCaseNamingConvention()
-);
+builder
+    .Services
+    .AddDbContext<DataContext>(
+        options =>
+            options
+                .UseNpgsql(dataSource, o => o.UseNetTopologySuite())
+                .UseSnakeCaseNamingConvention()
+    );
 
 builder.Services.AddHttpClient();
 var app = builder.Build();

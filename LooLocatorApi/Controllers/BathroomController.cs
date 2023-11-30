@@ -1,32 +1,31 @@
-using System.Text;
 using LooLocatorApi.Models;
 using LooLocatorApi.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
+using NetTopologySuite.Features;
+using NetTopologySuite.IO;
 
 namespace LooLocatorApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class BathroomController : ControllerBase
+public class BathroomController(IBathroomService bathroomService, IOptions<JsonOptions> jsonOptions)
+    : ControllerBase
 {
     // private readonly DataContext _context;
-    private readonly IBathroomService _service;
 
-    public BathroomController(IBathroomService bathroomService)
-    {
-        // _context = context;
-        _service = bathroomService;
-    }
+    // _context = context;
 
     // GET: api/Bathroom
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<BathroomDto>>> GetBathrooms()
+    public async Task<ActionResult<FeatureCollection>> GetBathrooms()
     {
-        var bathrooms = await _service.GetBathroomsAsync();
-        if (!bathrooms.Any())
-            return Ok();
-        return Ok(bathrooms);
+        var bathroomsGeoJson = await bathroomService.GetBathroomsAsync();
+        // if (!bathroomsGeoJson.Any())
+        //     return Ok();
+
+        return Ok(bathroomsGeoJson);
     }
 
     //
@@ -91,14 +90,10 @@ public class BathroomController : ControllerBase
     // POST: api/Bathroom
     // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
     [HttpPost]
-    public async Task<ActionResult<BathroomDto>> PostBathroom(
-        BathroomDto bathroomDto)
+    public async Task<ActionResult<BathroomDto>> PostBathroom(BathroomDto bathroomDto)
     {
-        var bathroom = await _service.CreateBathroomAsync(bathroomDto);
-        return CreatedAtAction(
-            nameof(PostBathroom),
-            new {id = bathroom.Id},
-            bathroom);
+        var bathroom = await bathroomService.CreateBathroomAsync(bathroomDto);
+        return CreatedAtAction(nameof(PostBathroom), new { id = bathroom.Id }, bathroom);
     }
     //
     // // DELETE: api/Bathroom/5

@@ -9,14 +9,13 @@ public class Bathroom
 {
     public Guid Id { get; set; }
 
-    [MaxLength(100)]
-    public required string LocationName { get; set; }
+    [MaxLength(100)] public required string LocationName { get; set; }
 
-    [MaxLength(500)]
-    public string? AdditionalInfo { get; set; }
+    [MaxLength(500)] public string? AdditionalInfo { get; set; }
 
     [Column(TypeName = "geography (point)")]
     public required Point Coordinates { get; set; }
+
     public Address Address { get; set; } = null!;
     public LocationType LocationType { get; set; }
     public bool IsAccessible { get; set; }
@@ -26,5 +25,5 @@ public class Bathroom
     public bool IsPurchaseRequired { get; set; }
     public bool IsKeyRequired { get; set; }
 
-    public List<CleanlinessRating> CleanlinessRatings { get; set; } = null!;
+    public List<CleanlinessRating>? CleanlinessRatings { get; set; }
 }

@@ -1,28 +1,27 @@
+using Humanizer;
 using LooLocatorApi.Data;
+using LooLocatorApi.Enums;
 using LooLocatorApi.Models;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Features;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.IO.Converters;
 
 namespace LooLocatorApi.Services;
 
-internal class BathroomService : IBathroomService
+internal class BathroomService(
+    DataContext dataContext,
+    GeometryFactory geometryFactory,
+    IAddressService addressService
+) : IBathroomService
 {
-    private readonly IAddressService _addressService;
-    private readonly DataContext _dataContext;
-    private readonly GeometryFactory _geometryFactory;
-
-    public BathroomService(DataContext dataContext,
-        GeometryFactory geometryFactory, IAddressService addressService)
-    {
-        _geometryFactory = geometryFactory.WithSRID(4362);
-        _dataContext = dataContext;
-        _addressService = addressService;
-    }
+    private readonly GeometryFactory _geometryFactory =
+        geometryFactory.WithSRID(4362);
 
     public async Task<BathroomDto> GetBathroomByIdAsync(Guid id)
     {
         var bathroom =
-            await _dataContext
+            await dataContext
                 .Set<Bathroom>()
                 .Include(b => b.CleanlinessRatings)
                 .Include(b => b.Address)
@@ -32,12 +31,17 @@ internal class BathroomService : IBathroomService
         return MapBathroomToDto(bathroom);
     }
 
-    public async Task<IEnumerable<BathroomDto>> GetBathroomsAsync()
+    public async Task<FeatureCollection> GetBathroomsAsync()
     {
-        var bathrooms = await _dataContext.Bathrooms
-            .Include(b => b.CleanlinessRatings)
-            .ToListAsync();
-        return bathrooms.Select(MapBathroomToDto);
+        // var bathrooms = await dataContext
+        //     .Bathrooms
+        //     .Include(b => b.CleanlinessRatings)
+        //     .ToListAsync();
+        var testBathroom = TestBathroom(Ratings.FourStars);
+        var testBathroom2 = TestBathroom(Ratings.ThreeStars);
+        var bathrooms = new List<Bathroom> { testBathroom, testBathroom2 };
+        var geoJson = MapBathroomsToGeoJson(bathrooms);
+        return geoJson;
     }
 
     public async Task<BathroomDto> CreateBathroomAsync(BathroomDto bathroomDto)
@@ -45,16 +49,15 @@ internal class BathroomService : IBathroomService
         var coordinates = _geometryFactory.CreatePoint(
             new Coordinate(bathroomDto.Longitude, bathroomDto.Latitude)
         );
-        var address = await _addressService.GetAddressFromCoordinatesAsync(
-            coordinates
-        );
-       
+        var address =
+            await addressService.GetAddressFromCoordinatesAsync(coordinates);
+
         var bathroom = MapDtoToBathroom(bathroomDto);
         bathroom.Coordinates = coordinates;
         bathroom.Address = address;
 
-        var newBathroom = await _dataContext.Set<Bathroom>().AddAsync(bathroom);
-        await _dataContext.SaveChangesAsync();
+        var newBathroom = await dataContext.Set<Bathroom>().AddAsync(bathroom);
+        await dataContext.SaveChangesAsync();
 
         return MapBathroomToDto(newBathroom.Entity);
     }
@@ -66,10 +69,11 @@ internal class BathroomService : IBathroomService
 
     public async Task DeleteBathroomAsync(Guid id)
     {
-        var bathroom = await _dataContext.Set<Bathroom>().FindAsync(id) ??
-                       throw new KeyNotFoundException();
-        _dataContext.Set<Bathroom>().Remove(bathroom);
-        await _dataContext.SaveChangesAsync();
+        var bathroom =
+            await dataContext.Set<Bathroom>().FindAsync(id) ??
+            throw new KeyNotFoundException();
+        dataContext.Set<Bathroom>().Remove(bathroom);
+        await dataContext.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<BathroomDto>> GetBathroomsWithinRadiusAsync(
@@ -77,7 +81,7 @@ internal class BathroomService : IBathroomService
         double radiusInMeters
     )
     {
-        var bathrooms = await _dataContext
+        var bathrooms = await dataContext
             .Set<Bathroom>()
             .Include(b => b.CleanlinessRatings)
             .Where(b =>
@@ -103,7 +107,7 @@ internal class BathroomService : IBathroomService
             }
         );
 
-        var bathrooms = await _dataContext
+        var bathrooms = await dataContext
             .Set<Bathroom>()
             .Include(b => b.CleanlinessRatings)
             .Where(b => b.Coordinates.Within(boundingBox))
@@ -114,8 +118,8 @@ internal class BathroomService : IBathroomService
 
     public async Task UpdateBathroomAsync(Bathroom bathroom)
     {
-        _dataContext.Set<Bathroom>().Update(bathroom);
-        await _dataContext.SaveChangesAsync();
+        dataContext.Set<Bathroom>().Update(bathroom);
+        await dataContext.SaveChangesAsync();
     }
 
     private static BathroomDto MapBathroomToDto(Bathroom bathroom)
@@ -139,22 +143,20 @@ internal class BathroomService : IBathroomService
             City = bathroom.Address?.City,
             Province = bathroom.Address?.Province,
             PostalCode = bathroom.Address?.PostalCode,
-            AverageRating = bathroom.CleanlinessRatings.Count > 0
-                ? bathroom.CleanlinessRatings
-                    .Select(r => r.Rating)
-                    .Cast<int>()
-                    .Average()
-                : null
+            AverageRating =
+                bathroom.CleanlinessRatings.Count > 0
+                    ? bathroom.CleanlinessRatings.Select(r => r.Rating)
+                        .Cast<int>().Average()
+                    : null
         };
     }
 
     private Bathroom MapDtoToBathroom(BathroomDto bathroomDto)
     {
         var coordinates = _geometryFactory.CreatePoint(
-            new Coordinate(bathroomDto.Longitude,
-                bathroomDto.Latitude)
+            new Coordinate(bathroomDto.Longitude, bathroomDto.Latitude)
         );
-        var address = _addressService.GetAddressFromBathroomDto(bathroomDto);
+        var address = addressService.GetAddressFromBathroomDto(bathroomDto);
         return new Bathroom
         {
             Id = bathroomDto.Id,
@@ -169,6 +171,90 @@ internal class BathroomService : IBathroomService
             IsPurchaseRequired = bathroomDto.IsPurchaseRequired,
             IsKeyRequired = bathroomDto.IsKeyRequired,
             Address = address
+        };
+    }
+
+    private FeatureCollection MapBathroomsToGeoJson(
+        IEnumerable<Bathroom> bathrooms)
+    {
+        var featureCollection = new FeatureCollection();
+        foreach (var bathroom in bathrooms)
+        {
+            var feature = MapBathroomToFeature(bathroom);
+            featureCollection.Add(feature);
+        }
+
+        return featureCollection;
+    }
+
+    private static Feature MapBathroomToFeature(Bathroom bathroom)
+    {
+        var averageRating = bathroom.CleanlinessRatings is { Count: > 0 }
+            ? bathroom.CleanlinessRatings.Select(r => r.Rating).Cast<int>()
+                .Average()
+            : 0;
+        return new Feature
+        {
+            Geometry = bathroom.Coordinates,
+            Attributes = new AttributesTable
+            {
+                { GeoJsonConverterFactory.DefaultIdPropertyName, bathroom.Id },
+                {
+                    "details",
+                    new AttributesTable
+                    {
+                        { "locationName", bathroom.LocationName },
+                        { "locationType", bathroom.LocationType },
+                        { "additionalInfo", bathroom.AdditionalInfo.Humanize() },
+                        { "isAccessible", bathroom.IsAccessible },
+                        { "isUnisex", bathroom.IsUnisex },
+                        { "isChangingTable", bathroom.IsChangingTable },
+                        { "isFamilyFriendly", bathroom.IsFamilyFriendly },
+                        { "isPurchaseRequired", bathroom.IsPurchaseRequired },
+                        { "isKeyRequired", bathroom.IsKeyRequired },
+                        { "addressLine1", bathroom.Address.Line1 },
+                        { "addressLine2", bathroom.Address?.Line2 },
+                        { "city", bathroom.Address?.City },
+                        { "province", bathroom.Address?.Province },
+                        { "postalCode", bathroom.Address?.PostalCode },
+                        { "averageRating", averageRating }
+                    }
+                }
+            }
+        };
+    }
+
+    private static Bathroom TestBathroom(Ratings rating = Ratings.FiveStars)
+    {
+        return new Bathroom
+        {
+            Coordinates = new Point(123, 123),
+            LocationName = "Test Bathroom",
+            LocationType = LocationType.Public,
+            AdditionalInfo = "Test Additional Info",
+            IsAccessible = true,
+            IsUnisex = true,
+            IsChangingTable = true,
+            IsFamilyFriendly = true,
+            IsPurchaseRequired = true,
+            IsKeyRequired = true,
+            Address = new Address
+            {
+                Line1 = "123 Test Street",
+                Line2 = "Test Line 2",
+                City = "Test City",
+                Province = "Test Province",
+                PostalCode = "T3S T1N"
+            },
+            CleanlinessRatings = new List<CleanlinessRating>
+            {
+                new()
+                {
+                    Rating = rating,
+                    Comment = "Test Comment",
+                    UserId = "Test User Id"
+                }
+            }
         };
     }
 }

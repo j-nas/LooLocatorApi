@@ -24,7 +24,7 @@ internal class AddressService : IAddressService
             HttpMethod.Get,
             $"https://geocode.maps.co/reverse?lat={coordinates.Y}&lon={coordinates.X}"
         );
-        var httpClient = _httpClientFactory.CreateClient();
+        using var httpClient = _httpClientFactory.CreateClient();
         var httpResponseMessage =
             await httpClient.SendAsync(httpRequestMessage);
 
