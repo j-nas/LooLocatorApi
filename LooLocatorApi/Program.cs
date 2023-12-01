@@ -1,5 +1,6 @@
 using LooLocatorApi.Data;
 using LooLocatorApi.Services;
+using LooLocatorApi.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO.Converters;

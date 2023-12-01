@@ -2,7 +2,7 @@ using LooLocatorApi.Models;
 using NetTopologySuite.Features;
 using NetTopologySuite.Geometries;
 
-namespace LooLocatorApi.Services;
+namespace LooLocatorApi.Services.Contracts;
 
 public interface IBathroomService
 {

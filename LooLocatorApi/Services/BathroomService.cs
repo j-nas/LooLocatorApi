@@ -2,6 +2,7 @@ using Humanizer;
 using LooLocatorApi.Data;
 using LooLocatorApi.Enums;
 using LooLocatorApi.Models;
+using LooLocatorApi.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Features;
 using NetTopologySuite.Geometries;
@@ -10,7 +11,7 @@ using NetTopologySuite.IO.Converters;
 namespace LooLocatorApi.Services;
 
 internal class BathroomService(
-    DataContext dataContext,
+    DbContext dataContext,
     GeometryFactory geometryFactory,
     IAddressService addressService
 ) : IBathroomService

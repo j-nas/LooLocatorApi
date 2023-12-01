@@ -1,5 +1,6 @@
 using LooLocatorApi.Models;
 using LooLocatorApi.Services;
+using LooLocatorApi.Services.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualBasic;
